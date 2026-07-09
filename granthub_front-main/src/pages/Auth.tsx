@@ -1,112 +1,163 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Sparkles, ArrowRight, Mail, Lock, User, Github } from 'lucide-react'
+import { useAuthContext } from '../context/AuthContext'
 
 type Mode = 'login' | 'register'
 
-export default function Auth() {
-    const navigate = useNavigate()
-    const [mode, setMode] = useState<Mode>('login')
-    const [showPass, setShowPass] = useState(false)
-    const [loading, setLoading] = useState(false)
-    const [form, setForm] = useState({ name: '', email: '', password: '' })
+const API_BASE = 'http://127.0.0.1:8000'
 
-    const handleSubmit = () => {
-        setLoading(true)
-        setTimeout(() => {
-            setLoading(false)
-            navigate('/')
-        }, 1500)
-    }
+function parseError(detail: unknown): string {
+    if (!detail) return 'Что-то пошло не так'
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) return detail.map((e: { msg?: string }) => e.msg ?? '').filter(Boolean).join(', ')
+    if (typeof detail === 'object' && 'message' in (detail as object)) return (detail as { message: string }).message
+    return 'Что-то пошло не так'
+}
+
+export default function Auth() {
+    const navigate  = useNavigate()
+    const { login } = useAuthContext()
+
+    const [mode,     setMode]     = useState<Mode>('login')
+    const [showPass, setShowPass] = useState(false)
+    const [loading,  setLoading]  = useState(false)
+    const [error,    setError]    = useState<string | null>(null)
+    const [form,     setForm]     = useState({
+        first_name: '',
+        last_name:  '',
+        username:   '',
+        email:      '',
+        password:   '',
+    })
 
     const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
         setForm(prev => ({ ...prev, [key]: e.target.value }))
 
+    async function handleSubmit() {
+        setError(null)
+        setLoading(true)
+
+        try {
+            let token: string
+            let userName: string
+
+            if (mode === 'login') {
+                const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ email: form.email, password: form.password }),
+                })
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) throw new Error(parseError(data?.detail))
+
+                token    = data.access_token
+                userName = data.user?.first_name ?? data.user?.username ?? form.email.split('@')[0]
+                login(token, { name: userName, email: form.email })
+                navigate('/dashboard')
+
+            } else {
+                // Validate max lengths before sending
+                if (form.first_name.length > 10) throw new Error('Имя не должно превышать 10 символов')
+                if (form.last_name.length > 10)  throw new Error('Фамилия не должна превышать 10 символов')
+                if (form.username.length > 20)    throw new Error('Никнейм не должен превышать 20 символов')
+
+                const res = await fetch(`${API_BASE}/api/v1/auth/signup`, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({
+                        first_name: form.first_name,
+                        last_name:  form.last_name,
+                        username:   form.username,
+                        email:      form.email,
+                        password:   form.password,
+                    }),
+                })
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) throw new Error(parseError(data?.detail))
+
+                // Account created — email verification required before login
+                setError(null)
+                setLoading(false)
+                // Switch to login and show success hint
+                setMode('login')
+                setForm(prev => ({ ...prev, password: '' }))
+                return
+            }
+
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Что-то пошло не так')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="min-h-screen bg-[#07111f] flex overflow-hidden">
 
+            {/* ── Left panel ── */}
             <div className="hidden lg:flex w-[52%] relative flex-col justify-between p-12 overflow-hidden">
-
                 <div className="absolute inset-0"
                      style={{
                          backgroundImage: `linear-gradient(rgba(0,198,167,0.04) 1px, transparent 1px),
                               linear-gradient(90deg, rgba(0,198,167,0.04) 1px, transparent 1px)`,
                          backgroundSize: '48px 48px'
-                     }}
-                />
-
+                     }} />
                 <div className="absolute top-[-100px] left-[-100px] w-[500px] h-[500px] rounded-full"
-                     style={{ background: 'radial-gradient(circle, rgba(0,198,167,0.08) 0%, transparent 70%)' }}
-                />
+                     style={{ background: 'radial-gradient(circle, rgba(0,198,167,0.08) 0%, transparent 70%)' }} />
                 <div className="absolute bottom-[-100px] right-[-50px] w-[400px] h-[400px] rounded-full"
-                     style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)' }}
-                />
+                     style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)' }} />
 
                 <div className="relative flex items-center gap-3">
                     <div className="w-9 h-9 bg-[#00c6a7] rounded-xl flex items-center justify-center text-[#07111f] font-bold text-lg"
-                         style={{ fontFamily: "'Instrument Serif', serif" }}>
-                        G
-                    </div>
-                    <span className="text-xl text-white font-bold"
-                          style={{ fontFamily: "'Instrument Serif', serif" }}>
-            Grant<span className="text-[#00c6a7]">Hub</span>.AI
-          </span>
+                         style={{ fontFamily: "'Instrument Serif', serif" }}>G</div>
+                    <span className="text-xl text-white font-bold" style={{ fontFamily: "'Instrument Serif', serif" }}>
+                        Grant<span className="text-[#00c6a7]">Hub</span>.AI
+                    </span>
                 </div>
 
-                     <div className="relative">
+                <div className="relative">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(0,198,167,0.2)] bg-[rgba(0,198,167,0.06)] text-[#00c6a7] text-xs font-semibold mb-6">
-                        <Sparkles size={11} />
-                        Платформа с AI-поиском грантов
+                        <Sparkles size={11} /> Платформа с AI-поиском грантов
                     </div>
-
                     <h1 className="text-5xl font-bold text-white leading-tight mb-6"
                         style={{ fontFamily: "'Instrument Serif', serif", letterSpacing: '-1.5px' }}>
                         Найди грант,<br />
                         <span className="text-[#00c6a7]">который тебя</span><br />
                         ждёт
                     </h1>
-
                     <p className="text-[#7a9bb5] text-base leading-relaxed max-w-sm">
                         ИИ анализирует твой профиль и подбирает лучшие гранты, стипендии
                         и стажировки из 12 000+ возможностей.
                     </p>
-
                     <div className="flex gap-8 mt-10">
                         {[
-                            { val: '12K+',  label: 'Грантов' },
-                            { val: '94%',   label: 'Точность AI' },
+                            { val: '12K+',  label: 'Грантов'          },
+                            { val: '94%',   label: 'Точность AI'      },
                             { val: '3 мин', label: 'До первой заявки' },
                         ].map(({ val, label }) => (
                             <div key={label}>
-                                <div className="text-2xl font-bold text-white"
-                                     style={{ fontFamily: "'Instrument Serif', serif" }}>
-                                    {val}
-                                </div>
+                                <div className="text-2xl font-bold text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>{val}</div>
                                 <div className="text-xs text-[#3d5a72] mt-0.5">{label}</div>
                             </div>
                         ))}
                     </div>
                 </div>
-
-
-
             </div>
 
+            {/* ── Right panel ── */}
             <div className="flex-1 flex items-center justify-center px-8 py-12 relative">
                 <div className="absolute inset-0 bg-[#050e1a]" />
 
                 <div className="relative w-full max-w-sm">
-
                     <div className="mb-8">
                         <div className="flex lg:hidden items-center gap-2 mb-8">
                             <div className="w-8 h-8 bg-[#00c6a7] rounded-lg flex items-center justify-center text-[#07111f] font-bold text-sm">G</div>
                             <span className="text-lg font-bold text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>
-                Grant<span className="text-[#00c6a7]">Hub</span>.AI
-              </span>
+                                Grant<span className="text-[#00c6a7]">Hub</span>.AI
+                            </span>
                         </div>
-
-                        <h2 className="text-2xl font-bold text-white mb-1"
-                            style={{ fontFamily: "'Instrument Serif', serif" }}>
+                        <h2 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "'Instrument Serif', serif" }}>
                             {mode === 'login' ? 'С возвращением' : 'Создать аккаунт'}
                         </h2>
                         <p className="text-sm text-[#3d5a72]">
@@ -116,6 +167,7 @@ export default function Auth() {
                         </p>
                     </div>
 
+                    {/* OAuth */}
                     <div className="flex gap-3 mb-6">
                         <button className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-[rgba(255,255,255,0.08)] rounded-lg text-sm text-[#7a9bb5] hover:bg-[#0c1e33] hover:text-white transition-all">
                             <svg width="16" height="16" viewBox="0 0 24 24">
@@ -127,11 +179,9 @@ export default function Auth() {
                             Google
                         </button>
                         <button className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-[rgba(255,255,255,0.08)] rounded-lg text-sm text-[#7a9bb5] hover:bg-[#0c1e33] hover:text-white transition-all">
-                            <Github size={16} />
-                            GitHub
+                            <Github size={16} /> GitHub
                         </button>
                     </div>
-
 
                     <div className="flex items-center gap-3 mb-6">
                         <div className="flex-1 h-px bg-[rgba(255,255,255,0.06)]" />
@@ -141,119 +191,121 @@ export default function Auth() {
 
                     <div className="flex flex-col gap-4">
 
+                        {/* Register-only fields */}
                         {mode === 'register' && (
-                            <div>
-                                <label className="block text-xs font-semibold text-[#7a9bb5] mb-1.5 uppercase tracking-wider">
-                                    Имя
-                                </label>
-                                <div className="relative">
-                                    <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3d5a72]" />
-                                    <input
-                                        type="text"
-                                        value={form.name}
-                                        onChange={set('name')}
-                                        placeholder="Алуа Нурмагамбетова"
-                                        className="w-full pl-10 pr-4 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13.5px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all"
-                                    />
+                            <>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[#7a9bb5] mb-1.5 uppercase tracking-wider">
+                                            Имя <span className="text-[#3d5a72] normal-case font-normal">макс. 10</span>
+                                        </label>
+                                        <div className="relative">
+                                            <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3d5a72]" />
+                                            <input type="text" value={form.first_name} onChange={set('first_name')}
+                                                placeholder="Алуа" maxLength={10}
+                                                className="w-full pl-9 pr-3 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[#7a9bb5] mb-1.5 uppercase tracking-wider">
+                                            Фамилия <span className="text-[#3d5a72] normal-case font-normal">макс. 10</span>
+                                        </label>
+                                        <input type="text" value={form.last_name} onChange={set('last_name')}
+                                            placeholder="Нурмагам." maxLength={10}
+                                            className="w-full px-3 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all" />
+                                    </div>
                                 </div>
-                            </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-[#7a9bb5] mb-1.5 uppercase tracking-wider">
+                                        Никнейм <span className="text-[#3d5a72] normal-case font-normal">макс. 20</span>
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3d5a72] text-sm">@</span>
+                                        <input type="text" value={form.username} onChange={set('username')}
+                                            placeholder="alua_kz" maxLength={20}
+                                            className="w-full pl-8 pr-4 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13.5px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all" />
+                                    </div>
+                                </div>
+                            </>
                         )}
 
+                        {/* Email */}
                         <div>
-                            <label className="block text-xs font-semibold text-[#7a9bb5] mb-1.5 uppercase tracking-wider">
-                                Email
-                            </label>
+                            <label className="block text-xs font-semibold text-[#7a9bb5] mb-1.5 uppercase tracking-wider">Email</label>
                             <div className="relative">
                                 <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3d5a72]" />
-                                <input
-                                    type="email"
-                                    value={form.email}
-                                    onChange={set('email')}
-                                    placeholder="alua@gmail.com"
-                                    className="w-full pl-10 pr-4 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13.5px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all"
-                                />
+                                <input type="email" value={form.email} onChange={set('email')} placeholder="alua@gmail.com"
+                                    className="w-full pl-10 pr-4 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13.5px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all" />
                             </div>
                         </div>
+
+                        {/* Password */}
                         <div>
                             <div className="flex justify-between mb-1.5">
-                                <label className="block text-xs font-semibold text-[#7a9bb5] uppercase tracking-wider">
-                                    Пароль
-                                </label>
+                                <label className="block text-xs font-semibold text-[#7a9bb5] uppercase tracking-wider">Пароль</label>
                                 {mode === 'login' && (
-                                    <button className="text-xs text-[#00c6a7] hover:text-white transition-colors">
-                                        Забыли пароль?
-                                    </button>
+                                    <button className="text-xs text-[#00c6a7] hover:text-white transition-colors">Забыли пароль?</button>
                                 )}
                             </div>
                             <div className="relative">
                                 <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3d5a72]" />
-                                <input
-                                    type={showPass ? 'text' : 'password'}
-                                    value={form.password}
-                                    onChange={set('password')}
-                                    placeholder="••••••••"
-                                    className="w-full pl-10 pr-10 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13.5px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all"
-                                />
-                                <button
-                                    onClick={() => setShowPass(!showPass)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d5a72] hover:text-[#7a9bb5] transition-colors"
-                                >
+                                <input type={showPass ? 'text' : 'password'} value={form.password} onChange={set('password')}
+                                    placeholder="••••••••" minLength={8}
+                                    className="w-full pl-10 pr-10 py-3 bg-[#0c1e33] border border-[rgba(255,255,255,0.08)] rounded-xl text-[13.5px] text-white placeholder-[#3d5a72] focus:outline-none focus:ring-2 focus:ring-[rgba(0,198,167,0.25)] focus:border-[#00c6a7] transition-all" />
+                                <button onClick={() => setShowPass(!showPass)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d5a72] hover:text-[#7a9bb5] transition-colors">
                                     {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                                 </button>
                             </div>
-
                             {mode === 'register' && form.password.length > 0 && (
                                 <div className="mt-2">
                                     <div className="flex gap-1">
                                         {[1,2,3,4].map(i => (
                                             <div key={i} className="flex-1 h-1 rounded-full transition-all duration-300"
-                                                 style={{
-                                                     background: i <= Math.min(4, Math.floor(form.password.length / 3))
-                                                         ? (form.password.length < 6 ? '#f5a623' : form.password.length < 10 ? '#00c6a7' : '#22c55e')
-                                                         : 'rgba(255,255,255,0.06)'
-                                                 }}
-                                            />
+                                                style={{ background: i <= Math.min(4, Math.floor(form.password.length / 3))
+                                                    ? (form.password.length < 6 ? '#f5a623' : form.password.length < 10 ? '#00c6a7' : '#22c55e')
+                                                    : 'rgba(255,255,255,0.06)' }} />
                                         ))}
                                     </div>
                                     <p className="text-[10px] text-[#3d5a72] mt-1">
-                                        {form.password.length < 6 ? 'Слабый пароль' : form.password.length < 10 ? 'Хороший пароль' : 'Надёжный пароль ✓'}
+                                        {form.password.length < 8  ? 'Минимум 8 символов'
+                                        : form.password.length < 10 ? 'Хороший пароль'
+                                        : 'Надёжный пароль ✓'}
                                     </p>
                                 </div>
                             )}
                         </div>
 
-                        <button
-                            onClick={handleSubmit}
-                            disabled={loading}
-                            className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#00c6a7] text-[#07111f] font-bold rounded-xl hover:bg-[#00ddb9] active:scale-[0.98] transition-all text-[15px] mt-1 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {loading ? (
-                                <div className="w-5 h-5 border-2 border-[#07111f] border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                                <>
-                                    {mode === 'login' ? 'Войти' : 'Создать аккаунт'}
-                                    <ArrowRight size={16} />
-                                </>
-                            )}
+                        {/* Error */}
+                        {error && (
+                            <div className="px-4 py-3 bg-red-900/20 border border-red-800/40 rounded-xl text-[13px] text-red-400">
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Submit */}
+                        <button onClick={handleSubmit} disabled={loading}
+                            className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#00c6a7] text-[#07111f] font-bold rounded-xl hover:bg-[#00ddb9] active:scale-[0.98] transition-all text-[15px] mt-1 disabled:opacity-70 disabled:cursor-not-allowed">
+                            {loading
+                                ? <div className="w-5 h-5 border-2 border-[#07111f] border-t-transparent rounded-full animate-spin" />
+                                : <>{mode === 'login' ? 'Войти' : 'Создать аккаунт'} <ArrowRight size={16} /></>
+                            }
                         </button>
                     </div>
 
                     <p className="text-center text-sm text-[#3d5a72] mt-6">
                         {mode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}{' '}
-                        <button
-                            onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-                            className="text-[#00c6a7] font-semibold hover:text-white transition-colors"
-                        >
+                        <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }}
+                            className="text-[#00c6a7] font-semibold hover:text-white transition-colors">
                             {mode === 'login' ? 'Зарегистрироваться' : 'Войти'}
                         </button>
                     </p>
 
                     {mode === 'register' && (
                         <p className="text-center text-[11px] text-[#3d5a72] mt-4 leading-relaxed">
-                            Регистрируясь, вы соглашаетесь с{' '}
-                            <span className="text-[#00c6a7] cursor-pointer hover:underline">Условиями использования</span>
-                            {' '}и{' '}
-                            <span className="text-[#00c6a7] cursor-pointer hover:underline">Политикой конфиденциальности</span>
+                            После регистрации проверьте почту для подтверждения аккаунта.
+                            Затем войдите через форму входа.
                         </p>
                     )}
                 </div>
