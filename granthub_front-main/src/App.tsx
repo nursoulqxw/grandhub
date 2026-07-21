@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState } from 'react'
-import { FileText, Send, PencilLine } from 'lucide-react'
 import { AuthProvider, useAuthContext } from './context/AuthContext'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
@@ -12,7 +11,7 @@ import GrantDetail from './pages/GrantDetail'
 import Recommendations from './pages/Recommendations'
 import Favorites from './pages/Favorites'
 import Analytics from './pages/Analytics'
-import ComingSoonPage from './pages/ComingSoonPage'
+import Applications from './pages/Applications'
 
 // ── Redirects to /auth if not logged in ──────────────────────
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -36,27 +35,9 @@ function AppShell() {
                         <ProtectedRoute><Favorites /></ProtectedRoute>
                     } />
                     <Route path="/analytics"           element={<Analytics />} />
-                    <Route path="/applications/active" element={
-                        <ComingSoonPage
-                            title="Активные заявки"
-                            description="Здесь будут заявки, над которыми вы сейчас работаете. Отслеживание заявок появится, когда на бэкенде добавят модель applications."
-                            icon={FileText}
-                        />
-                    } />
-                    <Route path="/applications/submitted" element={
-                        <ComingSoonPage
-                            title="Поданные заявки"
-                            description="Здесь будут заявки, которые вы уже отправили, со статусами рассмотрения."
-                            icon={Send}
-                        />
-                    } />
-                    <Route path="/applications/drafts" element={
-                        <ComingSoonPage
-                            title="Черновики"
-                            description="Здесь будут сохранённые черновики заявок, которые можно дозаполнить позже."
-                            icon={PencilLine}
-                        />
-                    } />
+                    <Route path="/applications/active"    element={<Applications status="active" />} />
+                    <Route path="/applications/submitted" element={<Applications status="submitted" />} />
+                    <Route path="/applications/drafts"    element={<Applications status="draft" />} />
                     <Route path="/profile"          element={
                         <ProtectedRoute><Profile /></ProtectedRoute>
                     } />

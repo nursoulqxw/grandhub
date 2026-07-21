@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { useAuthContext } from '../context/AuthContext'
 import { fetchOpportunity, fetchGrants, fetchScholarships, fetchInternships } from '../services/api'
+import { useFavorites } from '../hooks/useFavorites'
+import ApplicationTracker from '../components/ApplicationTracker'
 import { type Opportunity, type OpportunityType, daysLeft, opportunityStatus, opportunityTags, typeLabels } from '../types'
 
 const statusConfig = {
@@ -65,10 +67,10 @@ export default function GrantDetail() {
     const { type, id } = useParams<{ type: OpportunityType; id: string }>()
     const navigate = useNavigate()
     const { token } = useAuthContext()
+    const { isFavorite, toggle } = useFavorites()
 
     const [grant, setGrant]     = useState<Opportunity | null | undefined>(undefined) // undefined = loading
     const [related, setRelated] = useState<Opportunity[]>([])
-    const [saved, setSaved]     = useState(false)
     const [copied, setCopied]   = useState(false)
 
     useEffect(() => {
@@ -132,6 +134,7 @@ export default function GrantDetail() {
     const tags        = opportunityTags(grant)
     const left        = daysLeft(grant.deadline)
     const isUrgent    = left !== null && left <= 3 && left >= 0
+    const saved       = isFavorite(grant.type, grant.id)
 
     return (
         <div className="flex-1 overflow-y-auto bg-[#07111f]">
@@ -223,7 +226,7 @@ export default function GrantDetail() {
 
                             <div className="flex gap-2">
                                 <button
-                                    onClick={() => setSaved(s => !s)}
+                                    onClick={() => toggle(grant.type, grant.id)}
                                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-[12.5px] font-medium transition-all duration-150
                                         ${saved
                                             ? 'bg-[rgba(0,198,167,0.12)] border-[rgba(0,198,167,0.3)] text-[#00c6a7]'
@@ -241,6 +244,8 @@ export default function GrantDetail() {
                                 </button>
                             </div>
                         </div>
+
+                        <ApplicationTracker type={grant.type} itemId={grant.id} />
 
                         <Section title="Детали">
                             <InfoRow icon={Calendar}  label="Дедлайн"      value={

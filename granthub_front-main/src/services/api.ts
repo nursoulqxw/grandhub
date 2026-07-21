@@ -108,3 +108,93 @@ export async function updateInterests(token: string, interests: string): Promise
     })
     if (!res.ok) throw new Error(`Ошибка ${res.status}`)
 }
+
+// ─────────────────────────────────────────────────────────────
+// Заявки (applications) — CRUD, привязаны к текущему пользователю.
+// Backend: /api/v1/applications/  (все методы требуют токен)
+// ─────────────────────────────────────────────────────────────
+
+export type ApplicationStatus = 'draft' | 'active' | 'submitted'
+
+// Заявка + вложенная возможность (backend отдаёт её в поле `data`).
+export type ApplicationEntry = {
+    id:           number
+    status:       ApplicationStatus
+    note:         string | null
+    item_type:    OpportunityType
+    item_id:      number
+    created_at:   string
+    updated_at:   string
+    submitted_at: string | null
+    opportunity:  Opportunity | null
+}
+
+type RawApplication = {
+    id:           number
+    item_type:    OpportunityType
+    item_id:      number
+    status:       ApplicationStatus
+    note:         string | null
+    created_at:   string
+    updated_at:   string
+    submitted_at: string | null
+    data:         Record<string, unknown> | null
+}
+
+function mapApplication(a: RawApplication): ApplicationEntry {
+    return {
+        id:           a.id,
+        status:       a.status,
+        note:         a.note,
+        item_type:    a.item_type,
+        item_id:      a.item_id,
+        created_at:   a.created_at,
+        updated_at:   a.updated_at,
+        submitted_at: a.submitted_at,
+        opportunity:  a.data ? ({ ...a.data, type: a.item_type } as Opportunity) : null,
+    }
+}
+
+export async function fetchApplications(token: string, status?: ApplicationStatus): Promise<ApplicationEntry[]> {
+    const url = new URL(`${API_BASE}/api/v1/applications/`)
+    if (status) url.searchParams.set('status', status)
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } })
+    if (res.status === 401) throw new Error('UNAUTHORIZED')
+    if (!res.ok) throw new Error(`Ошибка ${res.status}`)
+    const body = await res.json()
+    const list: RawApplication[] = Array.isArray(body?.applications) ? body.applications : []
+    return list.map(mapApplication)
+}
+
+export async function createApplication(
+    token: string,
+    payload: { item_type: OpportunityType; item_id: number; status?: ApplicationStatus; note?: string },
+): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/v1/applications/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(`Ошибка ${res.status}`)
+}
+
+export async function updateApplication(
+    token: string,
+    id: number,
+    payload: { status?: ApplicationStatus; note?: string },
+): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/v1/applications/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(`Ошибка ${res.status}`)
+}
+
+export async function deleteApplication(token: string, id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/v1/applications/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok && res.status !== 204) throw new Error(`Ошибка ${res.status}`)
+}
