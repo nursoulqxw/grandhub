@@ -26,27 +26,6 @@ role_checker = RoleChecker(['admin', 'user'])
 REFRESH_TOKEN_EXPIRY = 2
 
 
-def _split_csv(value: str | None) -> list[str]:
-    return [part.strip() for part in (value or "").split(",") if part.strip()]
-
-
-def user_payload(user):
-    return {
-        "uid": str(user.uid),
-        "email": user.email,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "is_verified": user.is_verified,
-        "interests": user.interests,
-        "preferred_types": _split_csv(user.preferred_types),
-        "countries": _split_csv(user.countries),
-        "degree_level": user.degree_level,
-        "remote_only": user.remote_only,
-        "paid_only": user.paid_only,
-    }
-
-
 @auth_router.post('/send_mail')
 async def send_mail(emails: EmailModel):
     emails = emails.addresses
@@ -77,7 +56,15 @@ async def create_user_account(user_data: UserCreateModel, bg_tasks: BackgroundTa
 
     return {
         "message": "Account Created! You can now log in.",
-        "user": user_payload(new_user)
+        "user": {
+            "uid": str(new_user.uid),
+            "email": new_user.email,
+            "username": new_user.username,
+            "first_name": new_user.first_name,
+            "last_name": new_user.last_name,
+            "is_verified": new_user.is_verified,
+            "interests": new_user.interests,
+        }
     }
 
 
@@ -159,7 +146,15 @@ async def get_new_access_token(token_details: dict = Depends(RefreshTokenBearer(
 
 @auth_router.get('/my_account')
 async def get_account_credentials(user = Depends(get_current_user), _:bool= Depends(role_checker)):
-    return user_payload(user)
+    return {
+        "uid": str(user.uid),
+        "email": user.email,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "is_verified": user.is_verified,
+        "interests": user.interests,
+    }
 
 
 @auth_router.patch('/my_account')
@@ -170,12 +165,21 @@ async def update_account(
     session: AsyncSession = Depends(get_session),
 ):
     """
-    Обновление профиля текущего пользователя и его предпочтений для ML.
+    Обновление профиля текущего пользователя. Сейчас поддерживает только
+    `interests` — используется движком рекомендаций (TF-IDF).
     """
     updated_user = await user_service.update_user(
         user, update_data.model_dump(exclude_unset=True), session
     )
-    return user_payload(updated_user)
+    return {
+        "uid": str(updated_user.uid),
+        "email": updated_user.email,
+        "username": updated_user.username,
+        "first_name": updated_user.first_name,
+        "last_name": updated_user.last_name,
+        "is_verified": updated_user.is_verified,
+        "interests": updated_user.interests,
+    }
 
 
 @auth_router.get('/logout')

@@ -5,7 +5,7 @@ import { useAuthContext } from '../context/AuthContext'
 
 type Mode = 'login' | 'register'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+const API_BASE = 'http://127.0.0.1:8000'
 
 function parseError(detail: unknown): string {
     if (!detail) return 'Что-то пошло не так'

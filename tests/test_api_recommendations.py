@@ -46,7 +46,7 @@ async def test_recompute_returns_relevant_recommendation(
     body = response.json()
     assert len(body) >= 1
     assert body[0]["item_type"] == "grant"
-    assert body[0]["source_model"] == "hybrid_lsa_v1"
+    assert body[0]["source_model"] == "tfidf_v1"
 
 
 async def test_recompute_replaces_previous_recommendations(
@@ -89,24 +89,8 @@ async def test_recompute_with_no_interests_returns_empty(session: AsyncSession, 
 
 async def test_update_my_account_sets_interests(user_client: AsyncClient):
     response = await user_client.patch(
-        "/api/v1/auth/my_account",
-        json={"interests": "climate science", "preferred_types": ["grant"], "remote_only": True},
+        "/api/v1/auth/my_account", json={"interests": "climate science"}
     )
 
     assert response.status_code == 200
     assert response.json()["interests"] == "climate science"
-    assert response.json()["preferred_types"] == ["grant"]
-    assert response.json()["remote_only"] is True
-
-
-async def test_create_interaction_for_current_user(user_client: AsyncClient):
-    response = await user_client.post(
-        "/api/v1/recommendations/interactions",
-        json={"item_id": 42, "item_type": "grant", "interaction_type": "save"},
-    )
-
-    assert response.status_code == 201
-    body = response.json()
-    assert body["item_id"] == 42
-    assert body["interaction_type"] == "save"
-    assert body["weight"] == 2.0

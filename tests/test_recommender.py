@@ -1,4 +1,4 @@
-from app.ml.recommender import rank_items_by_interest, rank_items_by_interest_lsa
+from app.ml.recommender import rank_items_by_interest
 
 
 def test_ranks_relevant_item_higher_than_unrelated():
@@ -59,27 +59,3 @@ def test_results_sorted_by_score_descending():
 
     scores = [r.score for r in ranked]
     assert scores == sorted(scores, reverse=True)
-
-
-def test_stop_word_only_text_does_not_break_ranking():
-    items = [("grant", 1, "the and of funding")]
-
-    ranked = rank_items_by_interest("the and of", items, min_score=0.0)
-
-    assert len(ranked) == 1
-
-
-def test_lsa_ranks_semantically_relevant_item_first():
-    items = [
-        ("grant", 1, "Neural network laboratory research funding"),
-        ("grant", 2, "Urban gardening and local food programme"),
-        ("grant", 3, "Artificial intelligence data science scholarship"),
-    ]
-
-    ranked = rank_items_by_interest_lsa(
-        "machine learning artificial intelligence research", items, min_score=0.0
-    )
-
-    assert ranked
-    assert ranked[0].item_id in (1, 3)
-    assert ranked[0].score >= ranked[-1].score

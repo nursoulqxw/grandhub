@@ -1,6 +1,6 @@
 import type { Opportunity, OpportunityType } from '../types'
 
-export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+export const API_BASE = 'http://127.0.0.1:8000'
 
 async function getJson<T>(url: string, token?: string | null): Promise<T> {
     const res = await fetch(url, {
@@ -14,18 +14,20 @@ function withType(type: OpportunityType) {
     return (item: Record<string, unknown>): Opportunity => ({ ...item, type }) as Opportunity
 }
 
+// Гранты требуют авторизации (RoleChecker на backend) — без токена вернём [].
 export async function fetchGrants(token?: string | null): Promise<Opportunity[]> {
-    const items = await getJson<Record<string, unknown>[]>(`${API_BASE}/api/v1/grants/grants/?page_size=100`, token)
+    if (!token) return []
+    const items = await getJson<Record<string, unknown>[]>(`${API_BASE}/api/v1/grants/grants/`, token)
     return items.map(withType('grant'))
 }
 
 export async function fetchScholarships(): Promise<Opportunity[]> {
-    const items = await getJson<Record<string, unknown>[]>(`${API_BASE}/api/v1/scholarships/?page_size=100`)
+    const items = await getJson<Record<string, unknown>[]>(`${API_BASE}/api/v1/scholarships/`)
     return items.map(withType('scholarship'))
 }
 
 export async function fetchInternships(): Promise<Opportunity[]> {
-    const items = await getJson<Record<string, unknown>[]>(`${API_BASE}/api/v1/internships/?page_size=100`)
+    const items = await getJson<Record<string, unknown>[]>(`${API_BASE}/api/v1/internships/`)
     return items.map(withType('internship'))
 }
 
@@ -69,7 +71,7 @@ export async function fetchRecommendations(token: string): Promise<Opportunity[]
     const res = await fetch(`${API_BASE}/api/v1/recommendations/`, {
         headers: { Authorization: `Bearer ${token}` },
     })
-    if (res.status === 401 || res.status === 403) throw new Error('UNAUTHORIZED')
+    if (res.status === 401) throw new Error('UNAUTHORIZED')
     if (!res.ok) throw new Error(`Ошибка ${res.status}`)
     const data = await res.json()
     const entries: RecommendationEntry[] = Array.isArray(data?.recommendations) ? data.recommendations : []
@@ -82,7 +84,7 @@ export async function recomputeRecommendations(token: string): Promise<Opportuni
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
     })
-    if (res.status === 401 || res.status === 403) throw new Error('UNAUTHORIZED')
+    if (res.status === 401) throw new Error('UNAUTHORIZED')
     if (!res.ok) throw new Error(`Ошибка ${res.status}`)
     const data = await res.json()
     // recompute отдаёт «сырые» Recommendation-записи (поле item_type, без
@@ -154,7 +156,7 @@ function mapApplication(a: RawApplication): ApplicationEntry {
 }
 
 export async function fetchApplications(token: string, status?: ApplicationStatus): Promise<ApplicationEntry[]> {
-    const url = new URL(`${API_BASE}/api/v1/applications/`, window.location.origin)
+    const url = new URL(`${API_BASE}/api/v1/applications/`)
     if (status) url.searchParams.set('status', status)
     const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } })
     if (res.status === 401) throw new Error('UNAUTHORIZED')

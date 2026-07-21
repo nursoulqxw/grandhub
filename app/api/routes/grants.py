@@ -17,7 +17,9 @@ access_token_bearer = AccessTokenBearer()
 role_checker = Depends(RoleChecker(['admin', 'user']))
 checker_admin = Depends(RoleChecker(['admin']))
 
-@router.get("/", response_model=List[grant.GrantRead], status_code=status.HTTP_200_OK)
+@router.get("/", response_model=List[grant.GrantRead],
+            status_code=status.HTTP_200_OK,
+            dependencies=[role_checker])
 async def get_all_grants(
     session: AsyncSession = Depends(get_session),
     # Пагинация
@@ -74,7 +76,9 @@ async def create_a_grant(
     return new_grant
 
 
-@router.get("/{grant_id}", response_model=grant.GrantRead, status_code=status.HTTP_200_OK)
+@router.get("/{grant_id}", response_model=grant.GrantRead,
+            status_code=status.HTTP_200_OK,
+            dependencies=[role_checker])
 async def get_grant(grant_id: int, session: AsyncSession = Depends(get_session)):
     item = await grant_service.get_grant(grant_id, session)
     if item:
