@@ -10,7 +10,7 @@ password_context = CryptContext(
     schemes=['bcrypt']
 )
 
-ACCESS_TOKEN_EXPIRY = 900
+ACCESS_TOKEN_EXPIRY = 60 * 60 * 24
 
 def generate_password_hash(password: str) -> str:
     hash = password_context.hash(password)
@@ -72,4 +72,3 @@ def decode_url_safe_token(token: str):
         return token_data
     except Exception as e:
         logging.error(str(e))
-

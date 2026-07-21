@@ -28,6 +28,11 @@ class User(SQLModel, table=True):
     interests: str | None = Field(
         default=None, sa_column=Column(pg.TEXT, nullable=True)
     )
+    preferred_types: str | None = Field(default=None, sa_column=Column(pg.TEXT, nullable=True))
+    countries: str | None = Field(default=None, sa_column=Column(pg.TEXT, nullable=True))
+    degree_level: str | None = None
+    remote_only: bool = Field(default=False)
+    paid_only: bool = Field(default=False)
     created_at: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now))
     updated_at: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now))
 

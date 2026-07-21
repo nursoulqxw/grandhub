@@ -15,6 +15,11 @@ class UserCreateModel(BaseModel):
         description="Свободный текст: чем интересуется пользователь, "
         "используется для подбора рекомендаций",
     )
+    preferred_types: Optional[List[str]] = None
+    countries: Optional[List[str]] = None
+    degree_level: Optional[str] = None
+    remote_only: bool = False
+    paid_only: bool = False
 
 class UserModel(BaseModel):
     uid : uuid.UUID
@@ -25,6 +30,11 @@ class UserModel(BaseModel):
     is_verified: bool
     password_hash: str = Field(exclude=True)
     interests: Optional[str] = None
+    preferred_types: Optional[List[str]] = None
+    countries: Optional[List[str]] = None
+    degree_level: Optional[str] = None
+    remote_only: bool = False
+    paid_only: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -36,11 +46,21 @@ class UserResponse(BaseModel):
     last_name: str
     is_verified: bool
     interests: Optional[str] = None
+    preferred_types: Optional[List[str]] = None
+    countries: Optional[List[str]] = None
+    degree_level: Optional[str] = None
+    remote_only: bool = False
+    paid_only: bool = False
     created_at: datetime
     updated_at: datetime
 
 class UserUpdateModel(BaseModel):
     interests: Optional[str] = None
+    preferred_types: Optional[List[str]] = None
+    countries: Optional[List[str]] = None
+    degree_level: Optional[str] = None
+    remote_only: Optional[bool] = None
+    paid_only: Optional[bool] = None
 
 
 class UserLoginModel(BaseModel):

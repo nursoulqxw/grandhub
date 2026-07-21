@@ -122,6 +122,15 @@ def _run_async(coro_factory: Callable[[AsyncSession], Awaitable[T]]) -> T:
     return asyncio.run(runner())
 
 
+def _queue_recommendation_recompute() -> Optional[str]:
+    """Queue a refresh after catalogue data changes without failing the ETL."""
+    try:
+        return recompute_all_recommendations.delay().id
+    except Exception:
+        logger.exception("Could not queue recommendation recompute after ETL")
+        return None
+
+
 # EMAIL
 
 @celery_app.task(
@@ -176,7 +185,12 @@ def etl_simpler_grants(pages: int = 1, start_page: int = 1, throttle_sec: float 
         )
     )
     logger.info("simpler-grants ETL finished: %s grants", len(ids))
-    return {"source": "simpler.grants.gov", "inserted": len(ids), "ids": ids}
+    return {
+        "source": "simpler.grants.gov",
+        "inserted": len(ids),
+        "ids": ids,
+        "recompute_task_id": _queue_recommendation_recompute(),
+    }
 
 
 @celery_app.task(name="app.celery_tasks.etl_intl_scholarships", **_ETL_TASK_OPTS)
@@ -206,7 +220,12 @@ def etl_intl_scholarships(
     logger.info("intl-scholarships ETL finished: %s items", len(result))
     if dry_run:
         return {"dry_run": True, "count": len(result), "items": result}
-    return {"source": "internationalscholarships.com", "inserted": len(result), "ids": result}
+    return {
+        "source": "internationalscholarships.com",
+        "inserted": len(result),
+        "ids": result,
+        "recompute_task_id": _queue_recommendation_recompute(),
+    }
 
 
 @celery_app.task(name="app.celery_tasks.etl_usajobs_internships", **_ETL_TASK_OPTS)
@@ -230,7 +249,12 @@ def etl_usajobs_internships(
         )
     )
     logger.info("usajobs-internships ETL finished: %s internships", len(ids))
-    return {"source": "usajobs.gov", "inserted": len(ids), "ids": ids}
+    return {
+        "source": "usajobs.gov",
+        "inserted": len(ids),
+        "ids": ids,
+        "recompute_task_id": _queue_recommendation_recompute(),
+    }
 
 
 @celery_app.task(name="app.celery_tasks.recompute_all_recommendations", soft_time_limit=900, time_limit=960)

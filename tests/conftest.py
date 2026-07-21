@@ -14,7 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 # Импортируем модели, чтобы они зарегистрировались в SQLModel.metadata
 # ДО вызова create_all — иначе их таблицы не будут созданы.
-from app.models import grant, scholarship, internship, recommendation, application  # noqa: F401
+from app.models import grant, scholarship, internship, recommendation, application, user_interaction  # noqa: F401
 from app.auth.models import User  # noqa: F401
 
 from app import app

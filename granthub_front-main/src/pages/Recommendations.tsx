@@ -129,7 +129,8 @@ function NotAuthenticated() {
 
 // ── Main ──────────────────────────────────────────────────────
 export default function Recommendations() {
-    const { isAuthenticated, token, user } = useAuthContext()
+    const navigate = useNavigate()
+    const { isAuthenticated, token, user, logout } = useAuthContext()
     const [grants,    setGrants]    = useState<Opportunity[]>([])
     const [loading,   setLoading]   = useState(true)
     const [error,     setError]     = useState<string | null>(null)
@@ -142,7 +143,12 @@ export default function Recommendations() {
         try {
             const data = await fetchRecommendations(token)
             setGrants(data)
-        } catch {
+        } catch (err) {
+            if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+                logout()
+                navigate('/auth')
+                return
+            }
             setError('Не удалось загрузить рекомендации — проверьте соединение с сервером')
         } finally {
             setLoading(false)
@@ -159,7 +165,12 @@ export default function Recommendations() {
             if (data.length === 0) {
                 setError('Рекомендаций пока нет — заполните поле «Интересы» в профиле, чтобы ИИ мог что-то подобрать')
             }
-        } catch {
+        } catch (err) {
+            if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+                logout()
+                navigate('/auth')
+                return
+            }
             setError('Не удалось пересчитать рекомендации')
         } finally {
             setRefreshing(false)
@@ -213,7 +224,7 @@ export default function Recommendations() {
                     <div className="flex-1">
                         <span className="text-[13px] font-semibold text-[#00c6a7]">Персональная подборка · </span>
                         <span className="text-[13px] text-[#7a9bb5]">
-                            TF-IDF-модель сравнила ваши интересы с описаниями грантов, стипендий и стажировок и отобрала{' '}
+                            TF-IDF + LSA-модель сравнила ваши интересы с описаниями грантов, стипендий и стажировок и отобрала{' '}
                             <strong className="text-white">{grants.length}</strong> наиболее подходящих
                         </span>
                     </div>
